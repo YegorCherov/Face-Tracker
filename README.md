@@ -30,6 +30,7 @@ python3 FaceTracker.py
 
 
 ## Results
+### These are placeholders for now and are not mine!
 ![alt text](https://raw.githubusercontent.com/wiki/Linzaer/Face-Track-Detect-Extract/pic4.gif "scene 1")
 ![alt text](https://raw.githubusercontent.com/wiki/Linzaer/Face-Track-Detect-Extract/pic5.jpg "faces extracted")
 
