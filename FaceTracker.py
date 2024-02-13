@@ -1,78 +1,99 @@
 import cv2
 import numpy as np
+import tensorflow as tf
+import threading
+import queue
 import tkinter as tk
 from PIL import Image, ImageTk
 
 class FaceDetector:
     def __init__(self):
-        self.frontal_face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-        self.profile_face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_profileface.xml')
+        # Load the SSD MobileNet V2 FPNLite model
+        self.model = tf.saved_model.load('ssd_mobilenet_v2_fpnlite_640x640_coco17_tpu-8/saved_model')
 
     def detect_faces(self, frame):
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = self.frontal_face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40), flags=cv2.CASCADE_SCALE_IMAGE)
-        profile_faces = self.profile_face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(40, 40), flags=cv2.CASCADE_SCALE_IMAGE)
+        # Convert the frame to RGB and resize to 640x640
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_resized = cv2.resize(frame_rgb, (640, 640))
+        # Prepare the frame for the model (expand dimensions)
+        input_tensor = tf.convert_to_tensor(np.expand_dims(frame_resized, 0), dtype=tf.float32)
+        # Run detection
+        detections = self.model(input_tensor)
+        # Process detections
+        boxes = detections['detection_boxes'][0].numpy()
+        scores = detections['detection_scores'][0].numpy()
+        # Filter out detections with low confidence
+        faces = [(box, score) for box, score in zip(boxes, scores) if score > 0.5]
+        return faces
 
-        # Properly handle cases where faces or profile_faces are empty
-        if len(faces) == 0 and len(profile_faces) == 0:
-            return np.array([])  # No faces detected
-        elif len(faces) == 0:
-            return profile_faces
-        elif len(profile_faces) == 0:
-            return faces
-        else:
-            return np.concatenate((faces, profile_faces))
+class VideoStream:
+    def __init__(self, src=0):
+        self.cap = cv2.VideoCapture(src)
+        self.frame_queue = queue.Queue(maxsize=10)
+        self.read_thread = threading.Thread(target=self.update, args=())
+        self.read_thread.daemon = True
+        self.stopped = False
 
-    
-class CameraStream:
-    def __init__(self):
-        self.cap = cv2.VideoCapture(0)
+    def start(self):
+        self.read_thread.start()
+        return self
 
-    def get_frame(self):
-        ret, frame = self.cap.read()
-        if ret:
-            return frame
-        else:
-            return None
+    def update(self):
+        while not self.stopped:
+            if not self.frame_queue.full():
+                ret, frame = self.cap.read()
+                if not ret:
+                    self.stop()
+                    break
+                self.frame_queue.put(frame)
 
-    def release(self):
+    def read(self):
+        return self.frame_queue.get()
+
+    def stop(self):
+        self.stopped = True
+        self.read_thread.join()
         self.cap.release()
 
-class GUIApplication:
+def draw_faces(frame, faces):
+    H, W = frame.shape[:2]
+    for box, _ in faces:
+        # Scale the bounding box coordinates back to the frame size
+        (startY, startX, endY, endX) = box
+        startX, startY, endX, endY = int(startX * W), int(startY * H), int(endX * W), int(endY * H)
+        cv2.rectangle(frame, (startX, startY), (endX, endY), (0, 255, 0), 2)
+    return frame
+
+class Application:
     def __init__(self, window, window_title):
         self.window = window
         self.window.title(window_title)
-        
-        self.camera = CameraStream()
-        self.detector = FaceDetector()
 
-        self.canvas = tk.Canvas(window, width=self.camera.cap.get(3), height=self.camera.cap.get(4))
+        self.video_source = 0
+        self.vid = VideoStream(self.video_source).start()
+        self.face_detector = FaceDetector()
+
+        self.canvas = tk.Canvas(window, width = 640, height = 480)
         self.canvas.pack()
 
-        self.update_frame()
+        self.update()
 
-    def update_frame(self):
-        frame = self.camera.get_frame()
-        if frame is not None:
-            faces = self.detector.detect_faces(frame)
-            for (x, y, w, h) in faces:
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-
-            self.photo = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
-            self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
-
-        self.window.after(15, self.update_frame)
-
-    def run(self):
         self.window.mainloop()
 
-    def on_closing(self):
-        self.camera.release()
-        self.window.destroy()
+def update(self):
+    frame = self.vid.read()
+    if frame is not None:
+        print("Frame captured")
+        faces = self.face_detector.detect_faces(frame)
+        if faces:
+            print(f"{len(faces)} face(s) detected")
+        frame = draw_faces(frame, faces)
+        self.photo = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+        self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
+    else:
+        print("No frame captured")
+    self.window.after(15, self.update)
 
-# Running the GUI Application
-if __name__ == "__main__":
-    root = tk.Tk()
-    app = GUIApplication(root, "Face Detection GUI")
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
-    app.run()
+
+# Create a window and pass it to the Application object
+Application(tk.Tk(), "Real-Time Face Detection")
