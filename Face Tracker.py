@@ -1,3 +1,4 @@
+```python
 import sqlite3
 import cv2
 import dlib
@@ -53,7 +54,7 @@ class CameraStream:
 
                 # Fetch the video frame dimensions
         self.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        self.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.height = int(self cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
     def get_frame(self):
         ret, frame = self.cap.read()
@@ -119,26 +120,3 @@ class GUIApplication:
 
         x1, y1, x2, y2 = face.left(), face.top(), face.right(), face.bottom()
         cv2.rectangle(frame, (x1, y1), (x2, y2), self.face_colors[face_id], 2)
-        cv2.putText(frame, f"ID: {face_id}", (x1 + 6, y1 - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, self.face_colors[face_id], 1)
-
-    def save_face_image(self, rgb_frame, face, face_id):
-        if not os.path.exists('new_faces'):
-            os.makedirs('new_faces')
-
-        face_image = rgb_frame[face.top()-30:face.bottom()+30, face.left()-30:face.right()+30]
-        cv2.imwrite(f'new_faces/face_{face_id}.jpg', cv2.cvtColor(face_image, cv2.COLOR_RGB2BGR))
-
-    def run(self):
-        self.window.mainloop()
-
-    def on_closing(self):
-        self.camera.release()
-        self.window.destroy()
-
-# Main execution
-if __name__ == "__main__":
-    create_database()
-    root = tk.Tk()
-    app = GUIApplication(root, "Face Recognition GUI")
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
-    app.run()
