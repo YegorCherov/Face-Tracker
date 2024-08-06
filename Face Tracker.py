@@ -1,3 +1,6 @@
+Here is the modified Python code:
+
+```python
 import sqlite3
 import cv2
 import dlib
@@ -84,7 +87,6 @@ class GUIApplication:
         if frame is not None:
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             detections = self.detector(rgb_frame)
-            known_faces = get_known_face_encodings()
 
             for detection in detections:
                 face = detection.rect  # Get the standard rectangle from mmod_rectangle
@@ -95,7 +97,7 @@ class GUIApplication:
                 face_descriptor = np.array(self.face_recog.compute_face_descriptor(rgb_frame, shape))
                 face_detected = False
 
-                for face_id, known_encoding in known_faces.items():
+                for face_id, known_encoding in get_known_face_encodings().items():
                     matches = np.linalg.norm(face_descriptor - known_encoding) < 0.6
                     if matches:
                         face_detected = True
@@ -104,7 +106,7 @@ class GUIApplication:
 
                 if not face_detected:
                     new_face_id = add_face_encoding(face_descriptor)
-                    known_faces[new_face_id] = face_descriptor
+                    get_known_face_encodings()[new_face_id] = face_descriptor  # Update the known faces dictionary
                     self.draw_face_rectangle(frame, face, new_face_id)
                     self.save_face_image(rgb_frame, face, new_face_id)
 
@@ -118,27 +120,4 @@ class GUIApplication:
             self.face_colors[face_id] = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
         x1, y1, x2, y2 = face.left(), face.top(), face.right(), face.bottom()
-        cv2.rectangle(frame, (x1, y1), (x2, y2), self.face_colors[face_id], 2)
-        cv2.putText(frame, f"ID: {face_id}", (x1 + 6, y1 - 6), cv2.FONT_HERSHEY_DUPLEX, 0.5, self.face_colors[face_id], 1)
-
-    def save_face_image(self, rgb_frame, face, face_id):
-        if not os.path.exists('new_faces'):
-            os.makedirs('new_faces')
-
-        face_image = rgb_frame[face.top()-30:face.bottom()+30, face.left()-30:face.right()+30]
-        cv2.imwrite(f'new_faces/face_{face_id}.jpg', cv2.cvtColor(face_image, cv2.COLOR_RGB2BGR))
-
-    def run(self):
-        self.window.mainloop()
-
-    def on_closing(self):
-        self.camera.release()
-        self.window.destroy()
-
-# Main execution
-if __name__ == "__main__":
-    create_database()
-    root = tk.Tk()
-    app = GUIApplication(root, "Face Recognition GUI")
-    root.protocol("WM_DELETE_WINDOW", app.on_closing)
-    app.run()
+        cv2.rectangle(frame, (x1, y1), (x2, y
